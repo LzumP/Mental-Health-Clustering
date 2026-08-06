@@ -1,0 +1,374 @@
+import pandas as pd
+
+df = pd.read_csv("mental_health.csv")
+df_ml = df.copy()
+columns_to_drop = [
+    "Do you have previous employers?",
+    "Have your previous employers provided mental health benefits?",
+    "Were you aware of the options for mental health care provided by your previous employers?",
+    "Did your previous employers ever formally discuss mental health (as part of a wellness campaign or other official communication)?",
+    "Did your previous employers provide resources to learn more about mental health issues and how to seek help?",
+    "Was your anonymity protected if you chose to take advantage of mental health or substance abuse treatment resources with previous employers?",
+    "Do you think that discussing a mental health disorder with previous employers would have negative consequences?",
+    "Do you think that discussing a physical health issue with previous employers would have negative consequences?",
+    "Would you have been willing to discuss a mental health issue with your previous co-workers?",
+    "Would you have been willing to discuss a mental health issue with your direct supervisor(s)?",
+    "Did you feel that your previous employers took mental health as seriously as physical health?",
+    "Would you be willing to bring up a physical health issue with a potential employer in an interview?",
+    "Why or why not?",
+    "Would you bring up a mental health issue with a potential employer in an interview?",
+    "Why or why not?.1",
+    "How willing would you be to share with friends and family that you have a mental illness?",
+    "If yes, what condition(s) have you been diagnosed with?",
+    "If maybe, what condition(s) do you believe you have?",
+    "If so, what condition(s) were you diagnosed with?",
+    "What country do you live in?",
+    "What US state or territory do you live in?",
+    "What country do you work in?",
+    "What US state or territory do you work in?"
+]
+
+df_ml = df_ml.drop(columns=columns_to_drop)
+
+more_columns_to_drop = [
+    "If you have revealed a mental health issue to a client or business contact, do you believe this has impacted you negatively?",
+    "If yes, what percentage of your work time (time performing primary or secondary job functions) is affected by a mental health issue?",
+    "Is your primary role within your company related to tech/IT?",
+    "If you have been diagnosed or treated for a mental health disorder, do you ever reveal this to coworkers or employees?",
+    "If you have revealed a mental health issue to a coworker or employee, do you believe this has impacted you negatively?",
+    "Do you believe your productivity is ever affected by a mental health issue?",
+    "Do you know local or online resources to seek help for a mental health disorder?",
+    "Do you have medical coverage (private insurance or state-provided) which includes treatment of \xa0mental health issues?",
+    "If you have been diagnosed or treated for a mental health disorder, do you ever reveal this to clients or business contacts?"
+]
+
+df_ml = df_ml.drop(columns=more_columns_to_drop)
+
+from sklearn.impute import SimpleImputer
+cat_imputer = SimpleImputer(strategy="most_frequent")
+num_imputer = SimpleImputer(strategy="median")
+
+
+df_ml["What is your gender?"] = (
+    df_ml["What is your gender?"]
+    .str.strip()
+    .str.lower()
+)
+
+male = [
+    "male", "m", "man", "cis male", "cis man", "male.", "mail",
+    "maile", "make", "msle", "malr", "male-ish", "male (cis)",
+    "mal", "male "
+]
+
+female = [
+    "female", "f", "woman", "cis female", "cis woman",
+    "female ", "femake", "woman "
+]
+
+df_ml.loc[df_ml["What is your gender?"].isin(male), "What is your gender?"] = "Male"
+df_ml.loc[df_ml["What is your gender?"].isin(female), "What is your gender?"] = "Female"
+
+df_ml.loc[
+    ~df_ml["What is your gender?"].isin(["Male", "Female"]),
+    "What is your gender?"
+] = "Other"
+
+
+df_ml["Which of the following best describes your work position?"] = (
+    df_ml["Which of the following best describes your work position?"]
+    .str.split("|")
+    .str[0]
+) 
+#SimpleImputer für numerische und kategorische Spalten erstellen
+num_columns = df_ml.select_dtypes(include=["int64", "float64"]).columns
+
+cat_columns = df_ml.select_dtypes(include=["object", "string"]).columns
+
+df_ml[num_columns] = num_imputer.fit_transform(df_ml[num_columns])
+df_ml[cat_columns] = cat_imputer.fit_transform(df_ml[cat_columns])
+
+# 1. Negative Bedeutung: hoher wert = mehr negative konsequenzen. 
+
+negative_consequence_cols = [
+    "Do you think that discussing a mental health disorder with your employer would have negative consequences?",
+    "Do you think that discussing a physical health issue with your employer would have negative consequences?"
+]
+
+negative_consequence_mapping = {
+    "No": 0,
+    "Maybe": 1,
+    "Yes": 2
+}
+
+for col in negative_consequence_cols:
+    df_ml[col] = df_ml[col].map(negative_consequence_mapping)
+
+
+
+# 2. Positive Bedeutung: hoher wert = mehr Wohlbefinden.
+
+comfort_cols = [
+    "Would you feel comfortable discussing a mental health disorder with your coworkers?",
+    "Would you feel comfortable discussing a mental health disorder with your direct supervisor(s)?"
+]
+
+comfort_mapping = {
+    "No": 0,
+    "Maybe": 1,
+    "Yes": 2
+}
+
+for col in comfort_cols:
+    df_ml[col] = df_ml[col].map(comfort_mapping)   
+
+# 3. Vorliegen einer psychischen Erkrankung: hoher wert = eher Erkrankung vorhanden.
+
+mental_health_status_cols = [
+    "Have you had a mental health disorder in the past?",
+    "Do you currently have a mental health disorder?"
+]
+
+mental_health_status_mapping = {
+    "No": 0,
+    "Maybe": 1,
+    "Yes": 2
+}
+
+for col in mental_health_status_cols:
+    df_ml[col] = df_ml[col].map(mental_health_status_mapping)
+
+# 4. Beobachtungen beeinflussen Offenheit: hoher wert = stärkere Hemmung, die eigene psychische Erkrankung offenzulegen.
+
+observation_effect_col = (
+    "Have your observations of how another individual who discussed a mental health disorder "
+    "made you less likely to reveal a mental health issue yourself in your current workplace?"
+)
+
+observation_effect_mapping = {
+    "No": 0,
+    "Maybe": 1,
+    "Yes": 2
+}
+
+df_ml[observation_effect_col] = (
+    df_ml[observation_effect_col].map(observation_effect_mapping)
+)
+
+# 5. Ja / Nein / Weiß nicht: hoher Wert = Ja, niedriger Wert = Nein, mittlerer Wert = Weiß nicht.
+yes_no_unknown_cols = [
+    
+    "Has your employer ever formally discussed mental health (for example, as part of a wellness campaign or other official communication)?",
+    "Does your employer offer resources to learn more about mental health concerns and options for seeking help?",
+    "Is your anonymity protected if you choose to take advantage of mental health or substance abuse treatment resources provided by your employer?",
+    "Do you feel that your employer takes mental health as seriously as physical health?",
+    "Do you have a family history of mental illness?"
+]
+
+yes_no_unknown_mapping = {
+    "No": 0,
+    "I don't know": 1,
+    "Yes": 2
+}
+
+for col in yes_no_unknown_cols:
+    df_ml[col] = df_ml[col].map(yes_no_unknown_mapping)
+
+
+# 6. Ja / Nein / Weiß nicht: hoher Wert = Ja, niedriger Wert = Nein, mittlerer Wert = Weiß nicht.
+yes_no_notsure_cols = [
+    "Do you know the options for mental health care available under your employer-provided coverage?"
+]
+
+yes_no_notsure_mapping = {
+    "No": 0,
+    "I am not sure": 1,
+    "Yes": 2
+}
+
+for col in yes_no_notsure_cols:
+    df_ml[col] = df_ml[col].map(yes_no_notsure_mapping)
+
+# 7. Ja / Nein: hoher Wert = Ja, niedriger Wert = Nein.
+yes_no_cols = [
+    "Have you heard of or observed negative consequences for co-workers who have been open about mental health issues in your workplace?",
+    "Have you been diagnosed with a mental health condition by a medical professional?"
+]
+
+yes_no_mapping = {
+    "No": 0,
+    "Yes": 1
+}
+
+for col in yes_no_cols:
+    df_ml[col] = df_ml[col].map(yes_no_mapping)
+
+# 8. Ja / Nein / Weiß nicht / Nicht berechtigt: hoher Wert = Ja, niedriger Wert = Nein, mittlerer Wert = Weiß nicht, niedrigster Wert = Nicht berechtigt.
+benefits_mapping = {
+    "No": 0,
+    "I don't know": 1,
+    "Yes": 2,
+    "Not eligible for coverage / N/A": 3
+}
+
+df_ml["Does your employer provide mental health benefits as part of healthcare coverage?"] = (
+    df_ml["Does your employer provide mental health benefits as part of healthcare coverage?"]
+    .map(benefits_mapping)
+)
+
+# 9. Anzahl der Mitarbeiter: hoher Wert = mehr Mitarbeiter.
+employee_cols = [
+    "How many employees does your company or organization have?"
+]
+
+employee_mapping = {
+    "1-5": 0,
+    "6-25": 1,
+    "26-100": 2,
+    "100-500": 3,
+    "500-1000": 4,
+    "More than 1000": 5
+}
+
+for col in employee_cols:
+    df_ml[col] = df_ml[col].map(employee_mapping)
+
+# 10. Leichtigkeit, einen medizinischen Urlaub zu beantragen: hoher Wert = schwieriger, niedriger Wert = leichter.
+# I don't know wird als mittlerer Wert behandelt, da es keine klare Antwort gibt.
+leave_cols = [
+    "If a mental health issue prompted you to request a medical leave from work, asking for that leave would be:"
+]
+
+leave_mapping = {
+    "Very easy": 0,
+    "Somewhat easy": 1,
+    "Neither easy nor difficult": 2,
+    "Somewhat difficult": 3,
+    "Very difficult": 4,
+    "I don't know": 2
+}
+
+for col in leave_cols:
+    df_ml[col] = df_ml[col].map(leave_mapping)
+
+# 11. Beobachtungen in vorherigen Arbeitsplätzen: hoher Wert = mehr negative Konsequenzen.
+previous_cols = [
+    "Did you hear of or observe negative consequences for co-workers with mental health issues in your previous workplaces?"
+]
+
+previous_mapping = {
+    "None of them": 0,
+    "Some of them": 1,
+    "Yes, all of them": 2
+}
+
+for col in previous_cols:
+    df_ml[col] = df_ml[col].map(previous_mapping)
+
+# 12. Geschlecht: hoher Wert = weiblich, niedriger Wert = männlich, mittlerer Wert = andere.
+gender_cols = [
+    "What is your gender?"
+]
+
+gender_mapping = {
+    "Male": 0,
+    "Female": 1,
+    "Other": 2
+}
+
+for col in gender_cols:
+    df_ml[col] = df_ml[col].map(gender_mapping)
+
+# 13. Remote-Arbeit: hoher Wert = mehr Remote-Arbeit, niedriger Wert = weniger Remote-Arbeit.
+remote_cols = [
+    "Do you work remotely?"
+]
+
+remote_mapping = {
+    "Never": 0,
+    "Sometimes": 1,
+    "Always": 2
+}
+
+for col in remote_cols:
+    df_ml[col] = df_ml[col].map(remote_mapping)
+
+# 14. Beeinträchtigung der Arbeit durch psychische Erkrankung: hoher Wert = mehr Beeinträchtigung, niedriger Wert = weniger Beeinträchtigung.
+interference_cols = [
+    "If you have a mental health issue, do you feel that it interferes with your work when being treated effectively?",
+    "If you have a mental health issue, do you feel that it interferes with your work when NOT being treated effectively?"
+]
+
+interference_mapping = {
+    "Never": 0,
+    "Rarely": 1,
+    "Sometimes": 2,
+    "Often": 3,
+    "Not applicable to me": 2
+}
+
+for col in interference_cols:
+    df_ml[col] = df_ml[col].map(interference_mapping)
+
+# 15. Beobachtungen oder Erfahrungen mit unsupportiven Reaktionen auf psychische Erkrankungen: hoher Wert = mehr negative Erfahrungen, niedriger Wert = weniger negative Erfahrungen.
+response_cols = [
+    "Have you observed or experienced an unsupportive or badly handled response to a mental health issue in your current or previous workplace?"
+]
+
+response_mapping = {
+    "No": 0,
+    "Maybe/Not sure": 1,
+    "Yes, I observed": 2,
+    "Yes, I experienced": 3
+}
+
+for col in response_cols:
+    df_ml[col] = df_ml[col].map(response_mapping)
+
+# 16. Wahrnehmung der Teammitglieder: hoher Wert = mehr negative Wahrnehmung, niedriger Wert = weniger negative Wahrnehmung.
+team_cols = [
+    "Do you think that team members/co-workers would view you more negatively if they knew you suffered from a mental health issue?"
+]
+
+team_mapping = {
+    "No, they do not": 0,
+    "No, I don't think they would": 1,
+    "Maybe": 2,
+    "Yes, I think they would": 3,
+    "Yes, they do": 4
+}
+
+for col in team_cols:
+    df_ml[col] = df_ml[col].map(team_mapping)
+
+# 17. Wahrnehmung der Karriere: hoher Wert = mehr negative Wahrnehmung, niedriger Wert = weniger negative Wahrnehmung.
+career_cols = [
+    "Do you feel that being identified as a person with a mental health issue would hurt your career?"
+]
+
+career_mapping = {
+    "No, it has not": 0,
+    "No, I don't think it would": 1,
+    "Maybe": 2,
+    "Yes, I think it would": 3,
+    "Yes, it has": 4
+}
+
+for col in career_cols:
+    df_ml[col] = df_ml[col].map(career_mapping)
+
+# 18. One-Hot-Encoding für die Arbeitsposition
+work_col = "Which of the following best describes your work position?"
+
+df_ml = pd.get_dummies(
+    df_ml,
+    columns=[work_col],
+    dtype=int
+)
+#Immer testweise die Form des DataFrames ausgeben, um sicherzustellen, dass die Transformationen korrekt durchgeführt wurden.
+#print(df_ml.shape)
+#print(df_ml.select_dtypes(include=["object", "string"]).columns.tolist())
+#print(df_ml.isna().sum().sum())
+
+# Speichern in eine neue CSV-Datei
+df_ml.to_csv("mental_health_preprocessed.csv", index=False)
