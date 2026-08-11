@@ -1,0 +1,75 @@
+import pandas as pd 
+df_ml = pd.read_csv("mental_health_preprocessed.csv")
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans
+import numpy as np 
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(df_ml)
+
+
+
+pca = PCA()
+X_pca = pca.fit_transform(X_scaled)
+#print(pca.explained_variance_ratio_)
+
+# Zeigt dass 30 Komponenten etwa 90,4% der Varianz erklären
+#cum_var = np.cumsum(pca.explained_variance_ratio_)
+
+#for i, value in enumerate(cum_var, start=1):
+#    print(i, value)
+
+pca = PCA(n_components=30)
+X_pca = pca.fit_transform(X_scaled)
+
+wss = []
+for k in range(1, 11):
+    kmeans = KMeans(n_clusters=k, random_state=42)
+    kmeans.fit(X_pca)
+    wss.append(kmeans.inertia_)
+
+
+
+import matplotlib.pyplot as plt
+
+plt.plot(range(1, 11), wss, marker='o')
+plt.xlabel("Anzahl der Cluster (k)")
+plt.ylabel("WSS")
+plt.title("Elbow-Methode")
+plt.grid(True)
+plt.show()
+#Elbow flacht ab k=4 ab, daher wählen wir k=4 als optimale Anzahl der Cluster
+
+kmeans = KMeans(n_clusters=4, random_state=42)
+clusters = kmeans.fit_predict(X_pca)
+
+df_ml["Cluster"] = clusters
+#print(df_ml["Cluster"].value_counts())
+# Cluster 0 und 1 mussten getauscht werden, weil K-Means bei neuer berechnung die Cluster anders nummeriert hat.
+df_ml["Cluster"] = df_ml["Cluster"].replace({
+    0: 1,
+    1: 0
+})
+
+cluster_summary = df_ml.groupby("Cluster").mean().T.round(2)
+#print(cluster_summary)
+
+
+
+#Cluster visualisieren
+plt.figure(figsize=(8, 6))
+
+plt.scatter(
+    X_pca[:, 0],
+    X_pca[:, 1],
+    c=df_ml["Cluster"],
+    alpha=0.6,
+    s=20
+)
+
+plt.xlabel("Hauptkomponente 1")
+plt.ylabel("Hauptkomponente 2")
+plt.title("Darstellung der vier Cluster")
+plt.show()
