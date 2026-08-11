@@ -208,7 +208,7 @@ benefits_mapping = {
     "No": 0,
     "I don't know": 1,
     "Yes": 2,
-    "Not eligible for coverage / N/A": 3
+    "Not eligible for coverage / N/A": 1
 }
 
 df_ml["Does your employer provide mental health benefits as part of healthcare coverage?"] = (
@@ -233,7 +233,7 @@ employee_mapping = {
 for col in employee_cols:
     df_ml[col] = df_ml[col].map(employee_mapping)
 
-# 10. Leichtigkeit, einen medizinischen Urlaub zu beantragen: hoher Wert = schwieriger, niedriger Wert = leichter.
+# 10. Leichtigkeit, medizinischen Urlaub zu beantragen: hoher Wert = schwieriger, niedriger Wert = leichter.
 # I don't know wird als mittlerer Wert behandelt, da es keine klare Antwort gibt.
 leave_cols = [
     "If a mental health issue prompted you to request a medical leave from work, asking for that leave would be:"
@@ -265,7 +265,7 @@ previous_mapping = {
 for col in previous_cols:
     df_ml[col] = df_ml[col].map(previous_mapping)
 
-# 12. Geschlecht: hoher Wert = weiblich, niedriger Wert = männlich, mittlerer Wert = andere.
+# 12. Geschlecht numerisch codieren.
 gender_cols = [
     "What is your gender?"
 ]
@@ -310,7 +310,7 @@ interference_mapping = {
 for col in interference_cols:
     df_ml[col] = df_ml[col].map(interference_mapping)
 
-# 15. Beobachtungen oder Erfahrungen mit unsupportiven Reaktionen auf psychische Erkrankungen: hoher Wert = mehr negative Erfahrungen, niedriger Wert = weniger negative Erfahrungen.
+# 15. Beobachtungen oder Erfahrungen mit negativer Reaktionen auf psychische Erkrankungen: hoher Wert = mehr negative Erfahrungen, niedriger Wert = weniger negative Erfahrungen.
 response_cols = [
     "Have you observed or experienced an unsupportive or badly handled response to a mental health issue in your current or previous workplace?"
 ]
@@ -365,7 +365,7 @@ df_ml = pd.get_dummies(
     columns=[work_col],
     dtype=int
 )
-#Immer testweise die Form des DataFrames ausgeben, um sicherzustellen, dass die Transformationen korrekt durchgeführt wurden.
+#Immer testweise die Form des DataFrames ausgeben um sicherzustellen, dass die Transformationen korrekt durchgeführt wurden.
 #print(df_ml.shape)
 #print(df_ml.select_dtypes(include=["object", "string"]).columns.tolist())
 #print(df_ml.isna().sum().sum())
